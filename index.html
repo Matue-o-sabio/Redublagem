@@ -1,1 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redubla Web - Plataforma de Dublagem</title>
+    <style>
+        /* ================= CSS / Dark Mode e Layout ================= */
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #bb86fc;
+            --primary-hover: #9965f4;
+            --danger-color: #cf6679;
+            --text-color: #ffffff;
+            --text-muted: #aaaaaa;
+        }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: var(--text-muted);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .controls-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        select, button {
+            background-color: #333;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        button.primary {
+            background-color: var(--primary-color);
+            color: #000;
+            font-weight: bold;
+        }
+
+        button.primary:hover { background-color: var(--primary-hover); }
+
+        button.danger { background-color: var(--danger-color); color: #000; font-weight: bold;}
+        button.danger:hover { background-color: #b55364; }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        video {
+            width: 100%;
+            max-height: 450px;
+            outline: none;
+        }
+
+        /* Indicador de gravação */
+        .recording-status {
+            display: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 12px;
+            border-radius: 20px;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            color: #fff;
+            z-index: 10;
+        }
+
+        .recording-status.active {
+            display: flex;
+        }
+
+        .red-dot {
+            width: 12px;
+            height: 12px;
+            background-color: var(--danger-color);
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Redubla Web</h1>
+        <p>Grave sua voz por cima das suas cenas favoritas</p>
+    </header>
+
+    <!-- ESTÚDIO DE GRAVAÇÃO -->
+    <div class="container">
+        <h2 class="section-title">1. Escolha a cena e grave</h2>
+        
+        <div class="controls-group">
+            <select id="video-selector">
+                <!-- Para rodar no GitHub Pages sem erro de CORS, hospede os MP4s na mesma pasta e troque os links aqui -->
+                <option value="https://raw.githubusercontent.com/w3c/web-platform-tests/master/media/movie_300.mp4">Cena 1 - W3C Test Video</option>
+                <option value="https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4">Cena 2 - Big Buck Bunny (10s)</option>
+            </select>
+        </div>
+
+        <div class="video-wrapper">
+            <div class="recording-status" id="recording-indicator">
+                <div class="red-dot"></div> REC <span id="timer">00:00</span>
+            </div>
+            <!-- crossOrigin é essencial para permitir o captureStream de origens externas -->
+            <video id="source-video" crossorigin="anonymous" controls muted>
+                Seu navegador não suporta a tag de vídeo.
+            </video>
+        </div>
+
+        <div class="controls-group" style="margin-top: 20px; justify-content: center;">
+            <button id="btn-record" class="danger">🎙️ Iniciar Gravação</button>
+            <button id="btn-stop" disabled>⏹️ Parar Gravação</button>
+        </div>
+    </div>
+
+    <!-- RESULTADO E DOWNLOAD -->
+    <div class="container">
+        <h2 class="section-title">2. Pré-visualização e Download</h2>
+        <div class="video-wrapper">
+            <video id="preview-video" controls>
+                Seu navegador não suporta a tag de vídeo.
+            </video>
+        </div>
+        <div class="controls-group" style="margin-top: 20px; justify-content: center;">
+            <button id="btn-download" class="primary" disabled>💾 Baixar Redublagem</button>
+        </div>
+    </div>
+
+    <script>
+        /* ================= JAVASCRIPT / Lógica Client-Side ================= */
+        
+        // Elementos da DOM
+        const videoSelector = document.getElementById('video-selector');
+        const sourceVideo = document.getElementById('source-video');
+        const previewVideo = document.getElementById('preview-video');
+        
+        const btnRecord = document.getElementById('btn-record');
+        const btnStop = document.getElementById('btn-stop');
+        const btnDownload = document.getElementById('btn-download');
+        
+        const recordingIndicator = document.getElementById('recording-indicator');
+        const timerDisplay = document.getElementById('timer');
+
+        // Variáveis de controle de mídia
+        let mediaRecorder;
+        let recordedChunks = [];
+        let micStream = null;
+        let finalBlobUrl = null;
+        let timerInterval;
+        let startTime;
+
+        // Inicializa o primeiro vídeo selecionado
+        sourceVideo.src = videoSelector.value;
+
+        // Troca o vídeo ao selecionar no dropdown
+        videoSelector.addEventListener('change', (e) => {
+            sourceVideo.src = e.target.value;
+            sourceVideo.load();
+        });
+
+        // ---------------- INICIAR GRAVAÇÃO ----------------
+        btnRecord.addEventListener('click', async () => {
+            try {
+                // 1. Solicita permissão do microfone
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                
+                // 2. Captura a stream do vídeo rodando no navegador (requer CORS se for link externo)
+                // Usamos any cast ou compatibilidade para browsers diferentes
+                const captureStreamFunc = sourceVideo.captureStream || sourceVideo.mozCaptureStream;
+                if (!captureStreamFunc) {
+                    alert("Seu navegador não suporta a captura de vídeo nativa.");
+                    return;
+                }
+                const videoStream = captureStreamFunc.call(sourceVideo);
+
+                // 3. Verifica se conseguiu capturar o vídeo (CORS geralmente bloqueia aqui)
+                if (videoStream.getVideoTracks().length === 0) {
+                    alert("Erro: Não foi possível capturar o vídeo. Se estiver testando localmente, tente rodar um Live Server ou hospedar os vídeos no mesmo domínio (CORS).");
+                    return;
+                }
+
+                // 4. Combina a trilha de vídeo (original) com a trilha de áudio (microfone)
+                const combinedStream = new MediaStream([
+                    videoStream.getVideoTracks()[0], 
+                    micStream.getAudioTracks()[0]
+                ]);
+
+                // 5. Configura o MediaRecorder com a stream combinada
+                mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    // Gera o vídeo final ao parar
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    if (finalBlobUrl) URL.revokeObjectURL(finalBlobUrl);
+                    finalBlobUrl = URL.createObjectURL(blob);
+                    
+                    // Coloca no player de preview
+                    previewVideo.src = finalBlobUrl;
+                    btnDownload.disabled = false;
+
+                    // Desliga o microfone
+                    micStream.getTracks().forEach(track => track.stop());
+                };
+
+                // 6. Prepara UI e sincroniza a gravação
+                sourceVideo.currentTime = 0;
+                mediaRecorder.start();
+                sourceVideo.play();
+                
+                btnRecord.disabled = true;
+                btnStop.disabled = false;
+                videoSelector.disabled = true;
+                recordingIndicator.classList.add('active');
+
+                // Inicia cronômetro
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
+
+            } catch (err) {
+                console.error("Erro ao iniciar gravação:", err);
+                alert("Erro ao acessar microfone. Certifique-se de ter dado permissão.");
+            }
+        });
+
+        // ---------------- PARAR GRAVAÇÃO ----------------
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+            sourceVideo.pause();
+            
+            btnRecord.disabled = false;
+            btnStop.disabled = true;
+            videoSelector.disabled = false;
+            recordingIndicator.classList.remove('active');
+            
+            clearInterval(timerInterval);
+            timerDisplay.textContent = "00:00";
+        }
+
+        btnStop.addEventListener('click', stopRecording);
+
+        // Para automaticamente se o vídeo chegar ao fim
+        sourceVideo.addEventListener('ended', () => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                stopRecording();
+            }
+        });
+
+        // ---------------- DOWNLOAD DA REDUBLAGEM ----------------
+        btnDownload.addEventListener('click', () => {
+            if (!finalBlobUrl) return;
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = finalBlobUrl;
+            a.download = `redublagem_${new Date().getTime()}.webm`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+            }, 100);
+        });
+
+        // ---------------- CRONÔMETRO ----------------
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const seconds = String(elapsed % 60).padStart(2, '0');
+            timerDisplay.textContent = `${minutes}:${seconds}`;
+        }
+    </script>
+</body>
+</html>
